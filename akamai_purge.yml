@@ -1,0 +1,11 @@
+---
+- hosts: akamai
+  gather_facts: False
+  connection: local
+  vars:
+    domain: staging
+#  sudo: no
+
+  roles:
+    - { role: akamai_purge, akamai_client_secret: "{{akamai_credentials.client_secret}}", akamai_access_token: "{{akamai_credentials.access_token}}", akamai_client_token: "{{akamai_credentials.client_token}}", akamai_host: "{{akamai_credentials.host}}" }
+

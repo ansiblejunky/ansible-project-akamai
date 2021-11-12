@@ -1,0 +1,66 @@
+---
+# tasks file for akamai_purge
+
+- name: Install python dependency
+  pip:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - httplib2 
+  tags:
+    - akamai_purge
+    - akamai_purge_arl
+    - akamai_purge_cpcode
+    - akamai_status
+    - akamai_purge_friendly
+
+# Usage: ansible-playbook akamai.yml -i inventory/local --tags akamai_purge_arl -vv --extra-vars arl=http://www.example.com/graphics/picture.gif,http://www.example.com/documents/brochure.pdf
+- name: Submit ARL Purge Request
+  uri:
+    url: "{{ akamai_host }}/ccu/v3/invalidate/url/{{ queue_name | default('staging') }}" 
+    method: POST
+    client_secret: "{{ akamai_client_secret }}"
+    access_token: "{{ akamai_access_token }}"
+    client_token: "{{ akamai_client_token }}"
+    force_basic_auth: yes 
+    body: "{'action':'{{ akamai_action | default('remove')}}','domain':'{{ akamaidomain | lower }}','objects':['{{arl | to_json | replace('\"','') | replace('[','') | replace(']','') | replace(',',', ') }}'],'type':'arl'}" 
+    headers:
+      Content-Type: "application/json"
+    status_code: 201
+    body_format: json
+    return_content: yes
+  register: purge_request_response
+  when: arl is defined
+  tags:
+    - akamai_purge_arl
+
+- name: Notify email on purge status
+  mail: 
+    host: 127.0.0.1
+    port: 25
+    subject: "Akamai Purge {{purge_status_response.json.purgeStatus}} for {{arl|default('')}}{{cpcode|default('')}}{{friendly|default('')}}"
+    body: "Purge {{purge_status_response.json.purgeStatus}} {{arl|default('')}}{{cpcode|default('')}}{{friendly|default('')}} {{purge_status_response.json | to_nice_yaml}}"
+    from: donotreply@email.com
+    to: "{{notifyemail}}"
+    charset: utf8
+  ignore_errors: true
+  tags:
+    - akamai_purge
+    - akamai_purge_arl
+    - akamai_purge_cpcode
+    - akamai_purge_friendly
+    - silent
+
+- name: Output response variables
+  debug:
+    msg: "{{ item }}"
+  with_items:
+#    - queue_length_response.json
+    - purge_request_response.json
+    - purge_status_response.json
+  when: "{{ item }} is defined"
+  tags:
+    - akamai_purge
+    - akamai_purge_arl
+    - akamai_purge_cpcode
+    - akamai_purge_friendly
